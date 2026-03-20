@@ -1,3 +1,4 @@
+
 'use client';
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
@@ -23,15 +24,31 @@ export function initializeFirebase() {
     return getSdks(getApp());
   }
 
-  // Validate configuration presence to avoid obscure Firebase errors
-  const isConfigIncomplete = !firebaseConfig.apiKey || firebaseConfig.apiKey.includes('placeholder');
+  // Check if config is missing or contains default placeholders
+  const isConfigIncomplete = !firebaseConfig.apiKey || 
+                            firebaseConfig.apiKey === '' || 
+                            firebaseConfig.apiKey.includes('placeholder');
+
   if (isConfigIncomplete) {
-    console.error(
-      "Firebase configuration is missing or invalid. Please ensure all NEXT_PUBLIC_FIREBASE_* environment variables are set in your .env file."
+    // We log a warning instead of a blocking error during development if keys aren't set yet.
+    // This allows the app to mount, but Firebase services will fail if called.
+    console.warn(
+      "Firebase configuration is missing or invalid. Firebase features will not work until you set your NEXT_PUBLIC_FIREBASE_* environment variables in the .env file."
     );
+    
+    // Create a mock app or return null if you prefer, but usually initializeApp will throw 
+    // later if we don't handle it. For prototyping, we'll try to initialize but catch errors.
+    try {
+       const firebaseApp = initializeApp(firebaseConfig);
+       return getSdks(firebaseApp);
+    } catch (e) {
+       console.error("Failed to initialize Firebase:", e);
+       // Return empty objects to prevent total crash, though hooks will fail
+       return { firebaseApp: null as any, auth: null as any, firestore: null as any };
+    }
   }
 
-  // Initialize Firebase App
+  // Initialize Firebase App normally
   const firebaseApp = initializeApp(firebaseConfig);
   return getSdks(firebaseApp);
 }
