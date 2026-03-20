@@ -1,4 +1,3 @@
-
 'use client';
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
@@ -6,9 +5,8 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 /**
- * Firebase configuration populated from environment variables.
- * Using direct access to process.env here allows the app to build on hosting providers 
- * even if the local config file is ignored by git.
+ * Firebase configuration populated strictly from environment variables.
+ * Using NEXT_PUBLIC_ prefix ensures these are available on the client side.
  */
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -20,19 +18,22 @@ const firebaseConfig = {
 };
 
 export function initializeFirebase() {
-  if (!getApps().length) {
-    let firebaseApp;
-    try {
-      // Attempt to initialize via App Hosting environment variables first
-      firebaseApp = initializeApp();
-    } catch (e) {
-      // Fallback to the provided config object for Netlify and other providers
-      firebaseApp = initializeApp(firebaseConfig);
-    }
-    return getSdks(firebaseApp);
+  // Prevent multiple initializations
+  if (getApps().length > 0) {
+    return getSdks(getApp());
   }
 
-  return getSdks(getApp());
+  // Validate configuration presence to avoid obscure Firebase errors
+  const isConfigIncomplete = !firebaseConfig.apiKey || firebaseConfig.apiKey.includes('placeholder');
+  if (isConfigIncomplete) {
+    console.error(
+      "Firebase configuration is missing or invalid. Please ensure all NEXT_PUBLIC_FIREBASE_* environment variables are set in your .env file."
+    );
+  }
+
+  // Initialize Firebase App
+  const firebaseApp = initializeApp(firebaseConfig);
+  return getSdks(firebaseApp);
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
