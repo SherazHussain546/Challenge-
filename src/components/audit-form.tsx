@@ -12,8 +12,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { automatedLeadQualificationAndResponse } from '@/ai/flows/automated-lead-qualification-and-response-flow';
 import { Loader2, CheckCircle2 } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useAuth, useUser } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const formSchema = z.object({
@@ -27,6 +28,8 @@ export function AuditForm() {
   const [isSuccess, setIsSuccess] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const auth = useAuth();
+  const { user } = useUser();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -40,16 +43,25 @@ export function AuditForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      // 1. Process with GenAI flow (Server Action)
+      // 1. Ensure user is authenticated (anonymously) to satisfy security rules
+      if (!user) {
+        await signInAnonymously(auth);
+      }
+
+      // 2. Process with GenAI flow (Server Action)
       const aiResult = await automatedLeadQualificationAndResponse({ inquiry: values.inquiry });
 
-      // 2. Save to Firestore (Client Side)
+      // 3. Save to Firestore (Client Side)
       const leadRef = doc(collection(firestore, 'leads'));
       const leadData = {
-        ...values,
-        ...aiResult,
+        name: values.name,
+        email: values.email,
+        rawInquiry: values.inquiry,
         id: leadRef.id,
         createdAt: serverTimestamp(),
+        isQualified: aiResult.isQualified,
+        qualificationDetails: aiResult.qualificationDetails,
+        aiResponse: aiResult.response,
         status: 'new'
       };
 

@@ -28,6 +28,7 @@ export default function LeadDetailPage() {
   const { data: lead, isLoading } = useDoc(leadRef);
 
   const copyToClipboard = (text: string) => {
+    if (!text) return;
     navigator.clipboard.writeText(text);
     setCopied(true);
     toast({ description: "AI Response copied to clipboard." });
@@ -110,7 +111,7 @@ export default function LeadDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="p-4 rounded-xl bg-white/5 border border-white/5 font-body leading-relaxed text-muted-foreground italic">
-                "{lead.inquiry}"
+                "{lead.rawInquiry}"
               </div>
             </CardContent>
           </Card>
@@ -156,7 +157,7 @@ export default function LeadDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="p-6 rounded-2xl bg-accent/5 border border-accent/10 font-body leading-loose text-lg text-foreground whitespace-pre-wrap">
-              {lead.response}
+              {lead.aiResponse}
             </div>
           </CardContent>
           <CardFooter className="flex justify-between border-t border-white/5 pt-6">
@@ -166,7 +167,7 @@ export default function LeadDetailPage() {
             <div className="flex gap-3">
               <Button 
                 variant="outline" 
-                onClick={() => copyToClipboard(lead.response)}
+                onClick={() => copyToClipboard(lead.aiResponse)}
                 className="gap-2 border-white/10"
               >
                 {copied ? <Check className="w-4 h-4 text-accent" /> : <Copy className="w-4 h-4" />}

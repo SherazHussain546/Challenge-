@@ -24,8 +24,8 @@ export default function LeadsDashboard() {
   const { data: leads, isLoading } = useCollection(leadsQuery);
 
   const filteredLeads = (leads || []).filter(lead => 
-    lead.name.toLowerCase().includes(search.toLowerCase()) || 
-    lead.email.toLowerCase().includes(search.toLowerCase())
+    lead.name?.toLowerCase().includes(search.toLowerCase()) || 
+    lead.email?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -139,7 +139,7 @@ export default function LeadsDashboard() {
                     </TableCell>
                     <TableCell className="max-w-xs">
                       <p className="truncate text-sm text-muted-foreground">
-                        {lead.inquiry}
+                        {lead.rawInquiry}
                       </p>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
