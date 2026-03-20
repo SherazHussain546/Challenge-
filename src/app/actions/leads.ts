@@ -1,28 +1,12 @@
 
 'use server';
 
-import { db } from '@/lib/firebase-admin';
-import { automatedLeadQualificationAndResponse } from '@/ai/flows/automated-lead-qualification-and-response-flow';
-import { Timestamp } from 'firebase-admin/firestore';
+/**
+ * This Server Action is deprecated. 
+ * Lead processing and persistence is now handled directly in the client 
+ * (src/components/audit-form.tsx) for better reliability and faster UX.
+ */
 
-export async function submitLeadAction(formData: { name: string; email: string; inquiry: string }) {
-  try {
-    // 1. Process with GenAI flow
-    const aiResult = await automatedLeadQualificationAndResponse({ inquiry: formData.inquiry });
-
-    // 2. Save to Firestore
-    const leadData = {
-      ...formData,
-      ...aiResult,
-      createdAt: Timestamp.now(),
-      status: 'new'
-    };
-
-    await db.collection('leads').add(leadData);
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error submitting lead:', error);
-    return { success: false, error: 'Failed to process lead request.' };
-  }
+export async function submitLeadAction() {
+  return { success: false, error: 'Deprecated: Use client-side persistence.' };
 }
