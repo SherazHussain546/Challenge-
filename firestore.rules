@@ -1,0 +1,93 @@
+/**
+ * Firestore Security Rules
+ *
+ * Core Philosophy:
+ * This ruleset implements a Global Role-Based Access Control (RBAC) model. Access to sensitive 
+ * business data (Leads) is decoupled from the data itself and managed via a centralized 
+ * 'agencyStaff' collection. This ensures that internal staff can manage all leads without 
+ * requiring complex ownership logic within every lead document.
+ *
+ * Data Structure:
+ * - /leads/{leadId}: Top-level collection containing prospective client inquiries.
+ * - /agencyStaff/{userId}: Top-level collection where the document ID is the Firebase 
+ *   Auth UID. Documents contain an 'active' boolean to grant/revoke staff privileges.
+ *
+ * Key Security Decisions:
+ * 1. Global Staff Check: A helper function `isStaff()` performs a cross-document lookup 
+ *    to the 'agencyStaff' collection to verify if the requester is an active employee.
+ * 2. Public Lead Submission: To support the landing page, lead creation is permitted for 
+ *    any authenticated user (including anonymous users), while reading and managing 
+ *    leads is strictly restricted to staff.
+ * 3. Minimal Self-Access for Staff: Staff members can read their own staff profile to 
+ *    verify their status, but cannot modify it via the client SDK.
+ *
+ * Denormalization for Authorization:
+ * Authorization is managed via the 'agencyStaff' lookup. The 'Lead' documents remain clean 
+ * and independent of user-specific IDs, simplifying global queries for the agency staff.
+ */
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+
+    /** 
+     * @description Checks if the request is from a signed-in user.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** 
+     * @description Checks if the authenticated user's UID matches the provided userId.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** 
+     * @description Verifies if the authenticated user exists in the agencyStaff collection and is active.
+     */
+    function isStaff() {
+      return isSignedIn() && exists(/databases/$(database)/documents/agencyStaff/$(request.auth.uid)) && get(/databases/$(database)/documents/agencyStaff/$(request.auth.uid)).data.active == true;
+    }
+
+    /** 
+     * @description Helper to ensure a document exists before performing a destructive update or delete.
+     */
+    function documentExists() {
+      return resource != null;
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for the Leads collection. Allows public/anonymous submission but restricts management to staff.
+     * @path /leads/{leadId}
+     * @allow (create) if any authenticated user (inc. anonymous) submits a lead with matching ID.
+     * @allow (list/get/update/delete) if the user is an active member of the agency staff.
+     * @deny (list) if the user is not staff, even if they created the lead.
+     * @principle Role-Based Access Control via lookup collection.
+     */
+    match /leads/{leadId} {
+      allow create: if isSignedIn() && request.resource.data.id == leadId;
+      allow get, list: if isStaff();
+      allow update, delete: if isStaff() && documentExists();
+    }
+
+    /**
+     * @description Rules for the agencyStaff collection. Used as a source of truth for internal roles.
+     * @path /agencyStaff/{userId}
+     * @allow (get) if the user is checking their own staff status.
+     * @deny (list) to prevent staff directory enumeration.
+     * @deny (write) to prevent users from promoting themselves to staff status.
+     * @principle Strict ownership for reads; Admin-only writes (server-side).
+     */
+    match /agencyStaff/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+  }
+}
