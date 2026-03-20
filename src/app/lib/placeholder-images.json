@@ -1,0 +1,23 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "hero-bg",
+      "description": "Luxurious Dublin apartment interior at sunset",
+      "imageUrl": "https://picsum.photos/seed/dublin1/1200/800",
+      "imageHint": "luxury apartment"
+    },
+    {
+      "id": "feature-automation",
+      "description": "Abstract AI networking and automation visualization",
+      "imageUrl": "https://picsum.photos/seed/ai-tech/600/400",
+      "imageHint": "artificial intelligence"
+    },
+    {
+      "id": "dublin-city",
+      "description": "Dublin city skyline showing professional district",
+      "imageUrl": "https://picsum.photos/seed/dublin-city/800/600",
+      "imageHint": "dublin skyline"
+    }
+  ]
+}
