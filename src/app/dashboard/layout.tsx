@@ -1,38 +1,26 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { useAuth, useUser } from '@/firebase';
+import { signOut } from 'firebase/auth';
 import Link from 'next/link';
-import { LayoutDashboard, Users, Settings, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, LogOut, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const router = useRouter();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUser(user);
-        setLoading(false);
-      } else {
-        router.push('/login');
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
 
   const handleLogout = async () => {
     await signOut(auth);
     router.push('/');
   };
 
-  if (loading) {
+  if (isUserLoading) {
     return (
       <div className="min-h-screen bg-background flex">
         <aside className="w-64 border-r border-white/5 p-6 space-y-8 hidden md:block">
@@ -49,6 +37,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
     );
+  }
+
+  if (!user) {
+    router.push('/login');
+    return null;
   }
 
   return (
@@ -84,7 +77,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="mt-auto pt-6 border-t border-white/5">
           <div className="flex items-center gap-3 mb-6 px-2">
             <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center overflow-hidden">
-              <img src={user?.photoURL || ''} alt={user?.displayName} className="w-full h-full object-cover" />
+              <img src={user?.photoURL || ''} alt={user?.displayName || 'User'} className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold truncate">{user?.displayName}</p>

@@ -1,10 +1,10 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { doc } from 'firebase/firestore';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,26 +17,15 @@ export default function LeadDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const [lead, setLead] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const firestore = useFirestore();
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    async function fetchLead() {
-      if (!id) return;
-      const docRef = doc(db, 'leads', id as string);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setLead({ 
-          id: docSnap.id, 
-          ...docSnap.data(),
-          createdAt: docSnap.data().createdAt?.toDate()
-        });
-      }
-      setLoading(false);
-    }
-    fetchLead();
-  }, [id]);
+  const leadRef = useMemoFirebase(() => {
+    if (!id) return null;
+    return doc(firestore, 'leads', id as string);
+  }, [firestore, id]);
+
+  const { data: lead, isLoading } = useDoc(leadRef);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -45,7 +34,7 @@ export default function LeadDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6 max-w-4xl mx-auto">
         <Skeleton className="h-8 w-24" />
@@ -62,6 +51,8 @@ export default function LeadDetailPage() {
       </div>
     );
   }
+
+  const createdAtDate = lead.createdAt?.toDate ? lead.createdAt.toDate() : null;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -88,7 +79,7 @@ export default function LeadDetailPage() {
                   <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {lead.email}</span>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" /> 
-                    {lead.createdAt ? format(lead.createdAt, 'MMM d, yyyy') : '-'}
+                    {createdAtDate ? format(createdAtDate, 'MMM d, yyyy') : '-'}
                   </span>
                 </div>
               </div>

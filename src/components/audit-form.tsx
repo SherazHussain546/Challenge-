@@ -10,8 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { submitLeadAction } from '@/app/actions/leads';
+import { automatedLeadQualificationAndResponse } from '@/ai/flows/automated-lead-qualification-and-response-flow';
 import { Loader2, CheckCircle2 } from 'lucide-react';
+import { useFirestore } from '@/firebase';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -23,6 +26,7 @@ export function AuditForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const { toast } = useToast();
+  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -35,21 +39,36 @@ export function AuditForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    const result = await submitLeadAction(values);
-    setIsSubmitting(false);
+    try {
+      // 1. Process with GenAI flow (Server Action)
+      const aiResult = await automatedLeadQualificationAndResponse({ inquiry: values.inquiry });
 
-    if (result.success) {
+      // 2. Save to Firestore (Client Side)
+      const leadRef = doc(collection(firestore, 'leads'));
+      const leadData = {
+        ...values,
+        ...aiResult,
+        id: leadRef.id,
+        createdAt: serverTimestamp(),
+        status: 'new'
+      };
+
+      setDocumentNonBlocking(leadRef, leadData, { merge: true });
+
       setIsSuccess(true);
       toast({
         title: "Audit Requested Successfully",
         description: "Our team will review your inquiry and get back to you shortly.",
       });
-    } else {
+    } catch (error: any) {
+      console.error('Error submitting lead:', error);
       toast({
         variant: "destructive",
         title: "Submission Failed",
-        description: result.error || "Something went wrong. Please try again.",
+        description: error.message || "Something went wrong. Please try again.",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 

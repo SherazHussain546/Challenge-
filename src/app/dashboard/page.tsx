@@ -1,37 +1,29 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import React, { useState } from 'react';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Search, Filter, Calendar, MessageSquare, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Search, Filter, Calendar, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 
 export default function LeadsDashboard() {
-  const [leads, setLeads] = useState<any[]>([]);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+  const firestore = useFirestore();
 
-  useEffect(() => {
-    const q = query(collection(db, 'leads'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const leadsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate()
-      }));
-      setLeads(leadsData);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+  const leadsQuery = useMemoFirebase(() => {
+    return query(collection(firestore, 'leads'), orderBy('createdAt', 'desc'));
+  }, [firestore]);
 
-  const filteredLeads = leads.filter(lead => 
+  const { data: leads, isLoading } = useCollection(leadsQuery);
+
+  const filteredLeads = (leads || []).filter(lead => 
     lead.name.toLowerCase().includes(search.toLowerCase()) || 
     lead.email.toLowerCase().includes(search.toLowerCase())
   );
@@ -55,12 +47,12 @@ export default function LeadsDashboard() {
         <Card className="glass-card border-white/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-              <Users className="w-4 h-4" />
+              <UsersIcon className="w-4 h-4" />
               Total Inquiries
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{leads.length}</p>
+            <p className="text-4xl font-bold">{leads?.length || 0}</p>
           </CardContent>
         </Card>
         <Card className="glass-card border-white/5">
@@ -72,7 +64,7 @@ export default function LeadsDashboard() {
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold text-accent">
-              {leads.filter(l => l.isQualified).length}
+              {leads?.filter(l => l.isQualified).length || 0}
             </p>
           </CardContent>
         </Card>
@@ -85,7 +77,7 @@ export default function LeadsDashboard() {
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold">
-              {leads.length}
+              {leads?.length || 0}
             </p>
           </CardContent>
         </Card>
@@ -119,7 +111,7 @@ export default function LeadsDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
+              {isLoading ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-12">Loading inquiries...</TableCell></TableRow>
               ) : filteredLeads.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-12">No inquiries found matching your search.</TableCell></TableRow>
@@ -151,7 +143,7 @@ export default function LeadsDashboard() {
                       </p>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {lead.createdAt ? format(lead.createdAt, 'MMM d, h:mm a') : '-'}
+                      {lead.createdAt?.toDate ? format(lead.createdAt.toDate(), 'MMM d, h:mm a') : '-'}
                     </TableCell>
                     <TableCell className="text-right">
                       <Link href={`/dashboard/lead/${lead.id}`}>
@@ -171,8 +163,7 @@ export default function LeadsDashboard() {
   );
 }
 
-// Hallucinated icons need imports or manual definitions
-function Users({ className }: { className?: string }) {
+function UsersIcon({ className }: { className?: string }) {
   return (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
